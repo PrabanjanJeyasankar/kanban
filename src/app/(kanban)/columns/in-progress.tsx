@@ -29,7 +29,7 @@ export const InProgressColumn = (): JSX.Element => {
       <TaskModal
         defaultStatus={'in-progress' as CardStatus}
         trigger={
-          <button className='w-full mt-2 text-sm text-[--color-muted-foreground] font-sans border border-[--color-border] rounded-md py-2 flex justify-center items-center gap-1 hover:bg-[--color-muted] transition'>
+          <button className='hover:cursor-pointer w-full mt-2 text-sm text-[--color-muted-foreground] font-sans border border-[--color-border] rounded-md py-2 flex justify-center items-center gap-1 hover:bg-[--color-muted] transition'>
             <Plus className='w-4 h-4' />
             Add Task
           </button>

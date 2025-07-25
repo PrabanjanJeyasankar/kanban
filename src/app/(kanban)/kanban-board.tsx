@@ -1,121 +1,181 @@
 'use client'
 
-import { DndContext, DragEndEvent, DragStartEvent, DragOverlay } from '@dnd-kit/core'
-import { TodoColumn } from './columns/todo'
-import { InProgressColumn } from './columns/in-progress'
-import { CompletedColumn } from './columns/completed'
-import { TaskCard } from './components/task-card'
-import { useEffect, useMemo } from 'react'
+import React, { useEffect } from 'react'
+import {
+  DndContext,
+  DragStartEvent,
+  DragOverEvent,
+  DragEndEvent,
+  DragOverlay,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+
 import { useCards, useUpdateCard } from '@/002-hooks/use-tasks'
-import { useKanbanStore, Task, CardStatus } from '@/store/kanban-store'
+import { useKanbanStore } from '@/store/kanban-store'
 import { JSX } from 'react/jsx-runtime'
+import { TaskCard } from './components/task-card'
+import { InProgressColumn } from './columns/in-progress'
+import { TodoColumn } from './columns/todo'
+import { CompletedColumn } from './columns/completed'
+import { findContainer } from '@/utils'
+
+
 
 export const KanbanBoard = (): JSX.Element => {
-  const { data: fetchedTasks, isLoading } = useCards()
+  const { data: fetched, isLoading } = useCards()
   const updateCardMutation = useUpdateCard()
 
-  const setTasks = useKanbanStore((s) => s.setTasks)
-  const tasks = useKanbanStore((s) => s.tasks)
-  const setDraggedTask = useKanbanStore((s) => s.setDraggedTask)
-  const draggedTaskId = useKanbanStore((s) => s.draggedTaskId)
+  const setTasks   = useKanbanStore((s) => s.setTasks)
+  const tasks      = useKanbanStore((s) => s.tasks)
+  const updateTask = useKanbanStore((s) => s.updateTask)
+  const draggedId  = useKanbanStore((s) => s.draggedTaskId)
+  const setDragged = useKanbanStore((s) => s.setDraggedTask)
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { delay: 100, tolerance: 5 } })
+  )
 
   useEffect(() => {
-    if (!fetchedTasks) return
+    if (!fetched) return
+    const localIds  = tasks.map((t) => t.id).sort()
+    const remoteIds = fetched.map((t) => t.id).sort()
+    const same = localIds.length === remoteIds.length &&
+      localIds.every((id, i) => id === remoteIds[i])
+    if (!same) setTasks(fetched)
+  }, [fetched, tasks, setTasks])
 
-    const frontendIds = tasks.map((t) => t.id).sort()
-    const backendIds = fetchedTasks.map((t) => t.id).sort()
-
-    const idsMatch = frontendIds.length === backendIds.length && frontendIds.every((id, idx) => id === backendIds[idx])
-
-    if (!idsMatch) {
-      setTasks(fetchedTasks)
-    }
-  }, [fetchedTasks, setTasks, tasks])
-
-  const handleDragStart = (event: DragStartEvent) => {
-    const id = event.active.id
-    if (typeof id === 'string') setDraggedTask(id)
+  const handleDragStart = (event: DragStartEvent): void => {
+    setDragged(event.active.id as string)
   }
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragOver = (event: DragOverEvent): void => {
     const { active, over } = event
-    setDraggedTask(null)
+    if (!over) return
 
-    if (!over || !active) {
-      console.warn('[DragEnd] No valid target or active task')
-      return
-    }
+    const activeId = active.id as string
+    const overId   = over.id   as string
 
-    const taskId = active.id as string
-    const overId = over.id as string
+    const activeContainer = findContainer(activeId, tasks)
+    const overContainer   = findContainer(overId, tasks)
 
-    console.log('[DragEnd] taskId:', taskId, '| overId:', overId)
+    if (
+      activeContainer &&
+      overContainer &&
+      activeContainer !== overContainer
+    ) {
+      tasks
+        .filter((t) => t.status === overContainer)
+        .forEach((t) =>
+          updateTask(t.id, { position: t.position + 1 })
+        )
 
-    const task = tasks.find((t) => t.id === taskId)
-    if (!task) {
-      console.warn('[DragEnd] Task not found:', taskId)
-      return
-    }
-
-    // Drop on a column
-    if (['todo', 'in-progress', 'completed'].includes(overId)) {
-      const columnTasks = tasks.filter((t) => t.status === overId)
-      const newPos = columnTasks.length + 1
-
-      updateCardMutation.mutate({
-        id: taskId,
-        updates: {
-          status: overId as CardStatus,
-          position: newPos,
-        },
+      updateTask(activeId, {
+        status: overContainer,
+        position: 1,
       })
-      return
-    }
-
-    // Drop on another task
-    const overTask = tasks.find((t) => t.id === overId)
-    if (!overTask) {
-      console.warn('[DragEnd] Over task not found:', overId)
-      return
-    }
-
-    if (task.status !== overTask.status || task.position !== overTask.position) {
-      updateCardMutation.mutate({
-        id: taskId,
-        updates: {
-          status: overTask.status,
-          position: overTask.position,
-        },
-      })
-    } else {
-      console.log('[DragEnd] No position/status change, skipping update')
     }
   }
 
-  const draggedTask = useMemo(() => tasks.find((t) => t.id === draggedTaskId), [tasks, draggedTaskId])
+  const handleDragEnd = (event: DragEndEvent): void => {
+    const { active, over } = event
+    setDragged(null)
+    if (!over) return
+
+    const activeId = active.id as string
+    const overId   = over.id   as string
+
+    const newContainer = findContainer(overId, tasks)
+    if (!newContainer) return
+
+    const newPosition = tasks.filter((t) => t.status === newContainer)
+      .sort((a, b) => a.position - b.position)
+      .findIndex((t) => t.id === activeId) + 1
+
+    const original = tasks.find((t) => t.id === activeId)
+    if (
+      original &&
+      original.status === newContainer &&
+      original.position === newPosition
+    ) {
+      return
+    }
+
+    updateTask(activeId, {
+      status: newContainer,
+      position: newPosition,
+    })
+
+    updateCardMutation.mutate({
+      id: activeId,
+      updates: {
+        status: newContainer,
+        position: newPosition,
+      },
+    })
+  }
 
   if (isLoading) {
     return (
-      <div className='w-full flex justify-center items-center h-40 text-muted-foreground font-mono'>
-        Loading tasks...
+      <div className="w-full flex justify-center items-center h-40 font-mono">
+        Loading…
       </div>
     )
   }
+  const todoIds       = tasks.filter((t) => t.status === 'todo').map((t) => t.id)
+  const inProgressIds = tasks.filter((t) => t.status === 'in-progress').map((t) => t.id)
+  const completedIds  = tasks.filter((t) => t.status === 'completed').map((t) => t.id)
+
+  const activeTask = tasks.find((t) => t.id === draggedId!) 
 
   return (
-    <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className='w-full mt-6 grid grid-cols-1 md:grid-cols-3 gap-6 animate-fade-in'>
-        <TodoColumn />
-        <InProgressColumn />
-        <CompletedColumn />
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
+      onDragEnd={handleDragEnd}
+    >
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <SortableContext
+          items={todoIds}
+          strategy={verticalListSortingStrategy}
+        >
+          <TodoColumn />
+        </SortableContext>
+
+        <SortableContext
+          items={inProgressIds}
+          strategy={verticalListSortingStrategy}
+        >
+          <InProgressColumn />
+        </SortableContext>
+
+        <SortableContext
+          items={completedIds}
+          strategy={verticalListSortingStrategy}
+        >
+          <CompletedColumn />
+        </SortableContext>
       </div>
+
+      {/* Drag preview */}
       <DragOverlay>
-        {draggedTask ? (
-          <div className='pointer-events-none'>
-            <TaskCard task={draggedTask} index={0} columnId={draggedTask.status} />
-          </div>
+        {activeTask ? (
+          <TaskCard
+            task={activeTask}
+            index={0}
+            columnId={activeTask.status}
+          />
         ) : null}
       </DragOverlay>
     </DndContext>
   )
 }
+

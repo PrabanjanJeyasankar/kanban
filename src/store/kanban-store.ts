@@ -34,12 +34,13 @@ export const useKanbanStore = create<KanbanStore>()(
       setTasks: (tasks) => set({ tasks }),
       setDraggedTask: (id) => set({ draggedTaskId: id }),
       addTask: (task) => set((state) => ({ tasks: [...state.tasks, task] })),
-      updateTask: (id, updates) =>
+      updateTask: (id: string, updates: Partial<Task>) => {
         set((state) => ({
-          tasks: state.tasks.map((task) =>
-            task.id === id ? { ...task, ...updates, updatedAt: new Date().toISOString() } : task
+          tasks: state.tasks.map((t) =>
+            t.id === id ? { ...t, ...updates } : t
           ),
-        })),
+        }))
+      },
       deleteTask: (id) =>
         set((state) => ({
           tasks: state.tasks.filter((task) => task.id !== id),

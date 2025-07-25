@@ -29,7 +29,6 @@ export const TaskCard = ({ task, index, columnId }: Props): JSX.Element => {
   const dateStr = created?.toLocaleDateString()
   const timeStr = created?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
-  // Combine refs for drag and drop
   const setRefs = (el: HTMLElement | null) => {
     setDropRef(el)
     setDragRef(el)
@@ -46,14 +45,14 @@ export const TaskCard = ({ task, index, columnId }: Props): JSX.Element => {
           ${isDragging ? ' outline-2 outline-[--color-ring] z-20' : ''}
          ${isOver ? 'ring-3 ring-black/20 dark:ring-white/20' : ''}
         `}>
-        {/* Dropdown actions */}
+
         <div
           className='absolute top-2 right-2 z-20'
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className='rounded p-2 hover:bg-[--color-muted] transition' aria-label='Task actions'>
+              <button className='hover:cursor-pointer rounded p-2 hover:bg-[--color-muted] transition' aria-label='Task actions'>
                 <MoreVertical className='w-5 h-5' />
               </button>
             </DropdownMenuTrigger>
@@ -64,7 +63,7 @@ export const TaskCard = ({ task, index, columnId }: Props): JSX.Element => {
               onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => e.stopPropagation()}>
               <DropdownMenuItem
-                className='flex items-center gap-2 px-3 py-2 text-sm font-sans cursor-pointer'
+                className='hover:cursor-pointer flex items-center gap-2 px-3 py-2 text-sm font-sans cursor-pointer'
                 onClick={(e) => {
                   e.stopPropagation()
                   setIsEditOpen(true)
@@ -73,7 +72,7 @@ export const TaskCard = ({ task, index, columnId }: Props): JSX.Element => {
                 Edit
               </DropdownMenuItem>
               <DropdownMenuItem
-                className='flex items-center gap-2 px-3 py-2 text-sm font-sans text-destructive cursor-pointer'
+                className='hover:cursor-pointer flex items-center gap-2 px-3 py-2 text-sm font-sans text-destructive cursor-pointer'
                 onClick={() => {
                   deleteCardMutation.mutate(task.id)
                 }}>
@@ -84,12 +83,10 @@ export const TaskCard = ({ task, index, columnId }: Props): JSX.Element => {
           </DropdownMenu>
         </div>
 
-        {/* Card content */}
         <div className='flex flex-col space-y-3 cursor-grab active:cursor-grabbing select-none'>
           <h3 className='text-base font-semibold font-sans'>{task.title}</h3>
           <p className='text-sm text-[--color-muted-foreground] font-sans'>{task.content}</p>
 
-          {/* Tags */}
           {task.tags.length > 0 && (
             <div className='flex flex-wrap gap-1'>
               {task.tags.map((tag, idx) => (
@@ -102,7 +99,6 @@ export const TaskCard = ({ task, index, columnId }: Props): JSX.Element => {
             </div>
           )}
 
-          {/* Timestamp */}
           {created && (
             <div className='pt-3 border-t border-[--color-border]'>
               <div className='flex items-center gap-2 text-xs font-mono text-[--color-muted-foreground]'>
