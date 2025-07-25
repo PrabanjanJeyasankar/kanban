@@ -1,5 +1,4 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import axios from 'axios'
 import { CardStatus, Task, useKanbanStore } from '@/store/kanban-store'
 import { createCard, deleteCard, fetchCards, updateCard } from '@/001-actions/tasks'
 
@@ -117,7 +116,7 @@ export function useDeleteCard() {
   return useMutation<{ success: boolean }, Error, string>({
     mutationFn: async (id) => deleteCard(id),
     onSuccess: (_res, id) => {
-      deleteTask(id) // ✅ remove it from store
+      deleteTask(id)
       queryClient.invalidateQueries({ queryKey: ['cards'] })
     },
   })

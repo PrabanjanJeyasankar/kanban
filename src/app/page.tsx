@@ -1,5 +1,7 @@
 'use client'
 
+export const dynamic = 'force-dynamic'
+
 import { KanbanNavbar } from './(kanban)/components/navbar'
 import { KanbanBoard } from './(kanban)/kanban-board'
 
